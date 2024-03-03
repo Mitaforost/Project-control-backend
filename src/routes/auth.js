@@ -107,7 +107,6 @@ router.post('/login', getUserAccessLevel, async (req, res) => {
         console.error('Ошибка при авторизации:', error.message);
         res.status(500).send('Ошибка сервера');
     } finally {
-        // Закрываем подключение
         await pool.close();
     }
 });
