@@ -1,19 +1,26 @@
+// routes/projects.js
 const express = require('express');
 const router = express.Router();
-const { pool, connectDB, createConfig } = require('../utils/db');
+const ProjectService = require('../services/ProjectService');
 
-// Эндпоинт для получения данных из базы
-router.get('/api/projects', async (req, res) => {
+router.get('/api/projects', async (req, res) => { // измените путь здесь
     try {
-        await connectDB();
-        const result = await pool.request().query('SELECT * FROM Projects');
-        console.log('SQL Query Result:', result.recordset); // Log the SQL query result for debugging
-        res.json(result.recordset);
+        const projects = await ProjectService.getProjects();
+        res.json(projects);
     } catch (error) {
-        console.error('Ошибка при получении данных из базы данных:', error.message);
-        res.status(500).send('Ошибка сервера');
+        console.error('Error handling projects request:', error.message);
+        res.status(500).send('Internal Server Error');
     }
 });
 
+router.get('/api/projects/count', async (req, res) => {
+    try {
+        const projectsCount = await ProjectService.getProjectsCount();
+        res.json({ projectsCount });
+    } catch (error) {
+        console.error('Error handling projects count request:', error.message);
+        res.status(500).send('Internal Server Error');
+    }
+});
 
 module.exports = router;
