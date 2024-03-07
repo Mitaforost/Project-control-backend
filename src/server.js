@@ -3,7 +3,8 @@ const cors = require('cors');
 const authRouter = require('./routes/auth');
 const genericRouter = require('./routes/generic');
 const alldataRouter = require('./routes/alldata');
-const projectsRouter = require('./routes/projects'); // Добавил импорт маршрута projects
+const projectsRouter = require('./routes/projects');
+const documentsRouter = require('./routes/documents');
 
 const app = express();
 
@@ -13,8 +14,9 @@ app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/projects', genericRouter('Projects'));
 app.use('/users', genericRouter('Users'));
+app.use('/', documentsRouter);  // Изменено: используйте '/' вместо '/documents'
 app.use(alldataRouter);
-app.use(projectsRouter); // Добавил использование маршрута projects
+app.use(projectsRouter);
 
 const PORT = 3001;
 
