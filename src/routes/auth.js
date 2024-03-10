@@ -68,7 +68,7 @@ router.post('/login', getUserAccessLevel, async (req, res) => {
         const isPasswordValid = password === user.Password;
         console.log('Is password valid:', isPasswordValid);
         if (isPasswordValid) {
-            const token = generateToken(username, req.userAccessLevel);
+            const token = generateToken(username, req.userAccessLevel, req.userAccessLevel);
             res.json({ token });
             return; // Добавьте этот оператор return
         } else {

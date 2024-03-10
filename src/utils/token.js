@@ -4,10 +4,11 @@ const jwt = require('jsonwebtoken');
 // Проверяем, есть ли у нас секретный ключ в переменной окружения
 const secretKey = process.env.JWT_SECRET_KEY || 'DefaultSecretKey';
 
-const generateToken = (userId, username) => {
-    const payload = { userId, username };
+const generateToken = (userId, username, accessLevel) => {
+    const payload = { userId, username, accessLevel };
     return jwt.sign(payload, secretKey);
 };
+
 
 const verifyToken = (token) => {
     try {

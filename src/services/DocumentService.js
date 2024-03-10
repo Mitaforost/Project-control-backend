@@ -63,51 +63,56 @@ class DocumentService {
         }
     }
 
-    static async updateDocumentStatus(documentID, newStatus) {
+    static async signDocument(documentID, signedByUserID, userAccessLevel) {
         try {
-            await connectDB();
+            if (userAccessLevel === 1 || userAccessLevel === 2) {
+                await connectDB();
 
-            const result = await pool
-                .request()
-                .input('documentID', sql.Int, documentID)
-                .input('newStatus', sql.NVarChar, newStatus)
-                .query(`
-                UPDATE Documents
-                SET Status = @newStatus
-                WHERE DocumentID = @documentID;
-            `);
-
-            // Проверяем, что результат запроса не пустой и имеет свойство 'recordset'
-            if (result && result.recordset && result.recordset.length > 0) {
-                return result.recordset[0];
-            } else {
-                // Возвращаем null или другое значение по умолчанию в случае отсутствия данных
-                return null;
-            }
-        } catch (error) {
-            console.error('Error updating document status:', error.message);
-            throw error;
-        }
-    }
-
-
-    static async signDocument(documentID, signedByUserID) {
-        try {
-            await connectDB();
-
-            const result = await pool
-                .request()
-                .input('documentID', sql.Int, documentID)
-                .input('signedByUserID', sql.Int, signedByUserID)
-                .query(`
+                const result = await pool
+                    .request()
+                    .input('documentID', sql.Int, documentID)
+                    .input('signedByUserID', sql.Int, signedByUserID)
+                    .query(`
                     UPDATE Documents
                     SET Status = 'Signed', Action = 'Sign', SignedByUserID = @signedByUserID
                     WHERE DocumentID = @documentID;
                 `);
 
-            return result.recordset[0];
+                return result.recordset[0];
+            } else {
+                throw new Error('User does not have permission to sign documents.');
+            }
         } catch (error) {
             console.error('Error signing document in the database:', error.message);
+            throw error;
+        }
+    }
+
+    static async updateDocumentStatus(documentID, newStatus, userAccessLevel) {
+        try {
+            if (userAccessLevel === 1 || userAccessLevel === 2) {
+                await connectDB();
+
+                const result = await pool
+                    .request()
+                    .input('documentID', sql.Int, documentID)
+                    .input('newStatus', sql.NVarChar, newStatus)
+                    .query(`
+                    UPDATE Documents
+                    SET Status = @newStatus
+                    WHERE DocumentID = @documentID;
+                `);
+
+                if (result && result.recordset && result.recordset.length > 0) {
+                    return result.recordset[0];
+                } else {
+                    return null;
+                }
+            } else {
+                throw new Error('User does not have permission to update document status.');
+            }
+        } catch (error) {
+            console.error('Error updating document status:', error.message);
             throw error;
         }
     }

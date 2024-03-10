@@ -19,6 +19,8 @@ const checkToken = (req, res, next) => {
     }
 
     req.userId = decoded.userId;
+    req.username = decoded.username; // Добавлено: устанавливаем req.username равным декодированному имени пользователя
+    req.userAccessLevel = decoded.accessLevel;
     next();
 };
 

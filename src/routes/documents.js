@@ -9,6 +9,7 @@ router.use(checkToken); // Применяем проверку токена ко
 
 // Получить все документы
 router.get('/api/documents', checkAccessLevel(1), async (req, res) => {
+    console.log('User Access Level:', req.userAccessLevel); // Добавлено для отладки
     try {
         const documents = await DocumentService.getDocuments();
         res.json(documents);
