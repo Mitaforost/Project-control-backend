@@ -1,4 +1,3 @@
-// utils/db.js
 const sql = require('mssql');
 
 const config = {
@@ -7,14 +6,14 @@ const config = {
     authentication: {
         type: 'default',
         options: {
-            userName: 'Danila', // Изначально оставляем пустыми
+            userName: 'Danila',
             password: '3777',
         },
     },
     options: {
         encrypt: true,
         trustServerCertificate: true,
-        port: 1433, // Добавляем явное указание порта
+        port: 1433,
     },
 };
 
@@ -22,12 +21,16 @@ const pool = new sql.ConnectionPool(config);
 
 const connectDB = async (username, password) => {
     try {
-        // Обновляем данные в config перед подключением
-        config.authentication.options.userName = username;
-        config.authentication.options.password = password;
+        if (!pool.connected) {
+            // Обновляем данные в config перед подключением
+            config.authentication.options.userName = username;
+            config.authentication.options.password = password;
 
-        await pool.connect();
-        console.log('Успешное подключение к базе данных');
+            await pool.connect();
+            console.log('Успешное подключение к базе данных');
+        } else {
+            console.log('Соединение с базой данных уже установлено');
+        }
     } catch (error) {
         console.error('Ошибка при подключении к базе данных:', error.message);
         throw error;

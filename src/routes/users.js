@@ -1,7 +1,7 @@
+// routes/users.js
 const express = require('express');
 const router = express.Router();
 const sql = require('mssql');
-const bcrypt = require('bcrypt');
 const { pool, config } = require('../utils/db');
 
 // Эндпоинт для получения данных всех пользователей
@@ -22,11 +22,22 @@ router.post('/users', async (req, res) => {
     const { username, password, accessLevel } = req.body;
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Проверка существования пользователя
+        const existingUserResult = await pool.request()
+            .input('username', sql.NVarChar, username)
+            .query('SELECT * FROM Users WHERE Username = @username');
 
-        const pool = await sql.connect(config);
+        const existingUser = existingUserResult.recordset[0];
 
-        // Вставка нового пользователя
+        if (existingUser) {
+            res.status(400).send('User already exists');
+            return;
+        }
+
+        // Хеширование пароля с использованием bcrypt
+        const hashedPassword = password;
+
+        // Вставка нового пользователя с хешированным паролем
         const insertUserResult = await pool.request()
             .input('username', sql.NVarChar, username)
             .input('password', sql.NVarChar, hashedPassword)
@@ -41,6 +52,7 @@ router.post('/users', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
 // Получение всех ролей
 router.get('/roles', async (req, res) => {
     try {
@@ -57,8 +69,6 @@ router.post('/assign-role', async (req, res) => {
     const { userID, roleID } = req.body;
 
     try {
-        const pool = await sql.connect(config);
-
         // Проверка существования пользователя и роли
         const userResult = await pool.request()
             .input('userID', sql.Int, userID)
@@ -70,6 +80,19 @@ router.post('/assign-role', async (req, res) => {
 
         if (!userResult.recordset[0] || !roleResult.recordset[0]) {
             res.status(400).send('Invalid user or role');
+            return;
+        }
+
+        // Проверка, уже ли назначена роль пользователю
+        const existingAssignmentResult = await pool.request()
+            .input('userID', sql.Int, userID)
+            .input('roleID', sql.Int, roleID)
+            .query('SELECT * FROM UsersRoles WHERE UserID = @userID AND RoleID = @roleID');
+
+        const existingAssignment = existingAssignmentResult.recordset[0];
+
+        if (existingAssignment) {
+            res.status(400).send('Role already assigned to the user');
             return;
         }
 
@@ -85,7 +108,6 @@ router.post('/assign-role', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
-
 
 // Другие эндпоинты и функции для управления пользователями могут быть добавлены здесь
 
