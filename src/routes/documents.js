@@ -45,26 +45,33 @@ router.post('/api/documents', checkAccessLevel(2), async (req, res) => {
     }
 });
 
-// Подписать документ
-router.put('/api/documents/:documentID/sign', checkAccessLevel(2), async (req, res) => {
+// Подписать документ (только для уровня доступа 1)
+router.put('/api/documents/:documentID/sign', checkAccessLevel(1), async (req, res) => {
     const documentID = req.params.documentID;
+    const signedByUserID = req.userId; // Используем userId
 
     try {
-        const signedDocument = await DocumentService.signDocument(documentID);
+        const signedDocument = await DocumentService.signDocument(documentID, signedByUserID);
         res.json(signedDocument);
     } catch (error) {
         console.error('Error handling sign document request:', error.message);
-        res.status(500).send('Internal Server Error');
+
+        if (error.message === 'Invalid document status for signing') {
+            res.status(400).json({ error: 'Невозможно подписать документ с текущим статусом' });
+        } else {
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
     }
 });
 
-// Обновить статус документа
-router.put('/api/documents/:documentID/status', checkAccessLevel(2), async (req, res) => {
+router.put('/api/documents/:documentID/status', checkAccessLevel(1), async (req, res) => {
     const documentID = req.params.documentID;
     const newStatus = req.body.newStatus;
+    const userAccessLevel = req.userAccessLevel;
 
     try {
-        const updatedDocument = await DocumentService.updateDocumentStatus(documentID, newStatus);
+        console.log('Request to update document status:', documentID, newStatus, userAccessLevel);
+        const updatedDocument = await DocumentService.updateDocumentStatus(documentID, newStatus, req.userId);
         res.status(200).json(updatedDocument);
     } catch (error) {
         console.error('Error updating document status:', error.message);
@@ -84,5 +91,20 @@ router.delete('/api/documents/:documentID', checkAccessLevel(2), async (req, res
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+router.put('/api/documents/:documentID/send-for-signing', checkAccessLevel(2), async (req, res) => {
+    const documentID = req.params.documentID;
 
+    try {
+        const sentDocument = await DocumentService.sendDocumentForSigning(documentID, req.userId);
+        res.json(sentDocument);
+    } catch (error) {
+        console.error('Error handling send document for signing request:', error.message);
+
+        if (error.message === 'Invalid document status for sending for signing') {
+            res.status(400).json({ error: 'Невозможно отправить документ на подпись с текущим статусом' });
+        } else {
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+});
 module.exports = router;

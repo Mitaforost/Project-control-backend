@@ -7,7 +7,7 @@ class DocumentService {
         try {
             await connectDB();
 
-            const currentDate = new Date().toISOString(); // Получаем текущую дату и время в формате строки
+            const currentDate = new Date().toISOString();
 
             const result = await pool
                 .request()
@@ -15,12 +15,13 @@ class DocumentService {
                 .input('content', sql.NVarChar, newDocument.Content)
                 .input('senderID', sql.Int, newDocument.SenderID)
                 .input('receiverID', sql.Int, newDocument.ReceiverID)
-                .input('dateCreated', sql.DateTime, currentDate) // Передаем текущую дату
+                .input('dateCreated', sql.DateTime, currentDate)
+                .input('actionByUserID', sql.Int, newDocument.SenderID) // Добавлено новое поле
                 .query(`
-                INSERT INTO Documents (Title, Content, SenderID, ReceiverID, DateCreated)
-                VALUES (@title, @content, @senderID, @receiverID, @dateCreated);
-                SELECT * FROM Documents WHERE DocumentID = SCOPE_IDENTITY();
-            `);
+                    INSERT INTO Documents (Title, Content, SenderID, ReceiverID, DateCreated, ActionByUserID)
+                    VALUES (@title, @content, @senderID, @receiverID, @dateCreated, @actionByUserID);
+                    SELECT * FROM Documents WHERE DocumentID = SCOPE_IDENTITY();
+                `);
 
             return result.recordset[0];
         } catch (error) {
@@ -63,24 +64,30 @@ class DocumentService {
         }
     }
 
-    static async signDocument(documentID, signedByUserID, userAccessLevel) {
+    static async signDocument(documentID, signedByUserID) {
         try {
-            if (userAccessLevel === 1 || userAccessLevel === 2) {
-                await connectDB();
+            await connectDB();
 
+            const document = await this.getDocumentById(documentID);
+
+            if (document && document.Status === 'Pending') {
                 const result = await pool
                     .request()
                     .input('documentID', sql.Int, documentID)
                     .input('signedByUserID', sql.Int, signedByUserID)
                     .query(`
-                    UPDATE Documents
-                    SET Status = 'Signed', Action = 'Sign', SignedByUserID = @signedByUserID
-                    WHERE DocumentID = @documentID;
-                `);
+                        UPDATE Documents
+                        SET Status = 'Signed',
+                            Action = 'Подписано пользователем ' + CAST(@signedByUserID AS NVARCHAR),
+                            SignedByUserID = @signedByUserID
+                        WHERE DocumentID = @documentID;
+
+                        SELECT * FROM Documents WHERE DocumentID = @documentID;
+                    `);
 
                 return result.recordset[0];
             } else {
-                throw new Error('User does not have permission to sign documents.');
+                throw new Error('Invalid document status for signing');
             }
         } catch (error) {
             console.error('Error signing document in the database:', error.message);
@@ -88,23 +95,35 @@ class DocumentService {
         }
     }
 
-    static async updateDocumentStatus(documentID, newStatus, userAccessLevel) {
+    static async updateDocumentStatus(documentID, newStatus, userAccessLevel, sentByUserID) {
         try {
+            console.log('Updating document status:', documentID, newStatus, userAccessLevel, sentByUserID);
+
             if (userAccessLevel === 1 || userAccessLevel === 2) {
-                await connectDB();
+                // Преобразуем sentByUserID в числовое значение
+                const numericSentByUserID = parseInt(sentByUserID, 10);
+
+                if (isNaN(numericSentByUserID)) {
+                    throw new Error('Invalid sentByUserID. Must be a valid number.');
+                }
 
                 const result = await pool
                     .request()
                     .input('documentID', sql.Int, documentID)
                     .input('newStatus', sql.NVarChar, newStatus)
+                    .input('sentByUserID', sql.Int, numericSentByUserID)
                     .query(`
-                    UPDATE Documents
-                    SET Status = @newStatus
-                    WHERE DocumentID = @documentID;
-                `);
+                        UPDATE Documents
+                        SET Status = @newStatus,
+                            Action = 'Документ обновлен, отправил(а) пользователь ' + CAST(@sentByUserID AS NVARCHAR),
+                            ActionByUserID = @sentByUserID,
+                            SignedByUserID = CASE WHEN @newStatus = 'Signed' THEN @sentByUserID ELSE NULL END
+                        WHERE DocumentID = @documentID;
+                    `);
 
-                if (result && result.recordset && result.recordset.length > 0) {
-                    return result.recordset[0];
+
+                if (result && result.rowsAffected && result.rowsAffected > 0) {
+                    return result.rowsAffected[0];
                 } else {
                     return null;
                 }
@@ -117,7 +136,59 @@ class DocumentService {
         }
     }
 
-    // Добавьте другие методы, например, для изменения статуса документа и т.д.
+    static async getDocumentById(documentID) {
+        try {
+            await connectDB();
+
+            const result = await pool
+                .request()
+                .input('documentID', sql.Int, documentID)
+                .query(`
+                    SELECT * FROM Documents
+                    WHERE DocumentID = @documentID;
+                `);
+
+            if (result.recordset.length > 0) {
+                return result.recordset[0];
+            } else {
+                throw new Error('Document not found');
+            }
+        } catch (error) {
+            console.error('Error fetching document by ID from the database:', error.message);
+            throw error;
+        }
+    }
+    static async sendDocumentForSigning(documentID, sentByUserID) {
+        try {
+            await connectDB();
+
+            const document = await this.getDocumentById(documentID);
+
+            if (document && document.Status === 'Draft') {
+                const result = await pool
+                    .request()
+                    .input('documentID', sql.Int, documentID)
+                    .input('sentByUserID', sql.Int, sentByUserID)
+                    .query(`
+                    UPDATE Documents
+                    SET Status = 'Pending',
+                        Action = 'Документ отправлен на подпись админу пользователем ' + CAST(@sentByUserID AS NVARCHAR),
+                        ActionByUserID = @sentByUserID
+                    WHERE DocumentID = @documentID;
+
+                    SELECT * FROM Documents WHERE DocumentID = @documentID;
+                `);
+
+                return result.recordset[0];
+            } else {
+                throw new Error('Invalid document status for sending for signing');
+            }
+        } catch (error) {
+            console.error('Error sending document for signing in the database:', error.message);
+            throw error;
+        }
+    }
+
 }
 
 module.exports = DocumentService;
