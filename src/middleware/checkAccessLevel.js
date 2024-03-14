@@ -10,7 +10,7 @@ const checkAccessLevel = (requiredAccessLevel) => {
             next(); // Пользователь имеет достаточный уровень доступа
         } else {
             console.log('Access denied. Sending 403 Forbidden response.');
-            res.status(403).send('Access Forbidden'); // Доступ запрещен
+            res.status(403).send('Доступ запрещен');
         }
     };
 };

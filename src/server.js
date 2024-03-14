@@ -1,4 +1,4 @@
-//server.js
+// server.js
 const express = require('express');
 const cors = require('cors');
 const authRouter = require('./routes/auth');
@@ -15,8 +15,8 @@ app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/projects', genericRouter('Projects'));
 app.use('/users', genericRouter('Users'));
-app.use('/', documentsRouter);  // Изменено: используйте '/' вместо '/documents'
-app.use(alldataRouter);
+app.use('/alldata', alldataRouter);  // Изменил путь здесь
+app.use('/', documentsRouter);
 app.use(projectsRouter);
 
 const PORT = 3001;

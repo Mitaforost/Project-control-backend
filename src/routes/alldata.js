@@ -14,7 +14,7 @@ router.use((req, res, next) => {
     next();
 });
 
-router.get('/alldata', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         // Проверяем, есть ли токен в заголовках запроса
         const token = req.header('Authorization') || req.query.token;
