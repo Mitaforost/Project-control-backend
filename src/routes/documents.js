@@ -9,13 +9,13 @@ router.use(checkToken); // Применяем проверку токена ко
 
 // Получить все документы
 router.get('/api/documents', checkAccessLevel(1), async (req, res) => {
-    console.log('User Access Level:', req.userAccessLevel); // Добавлено для отладки
+    console.log('Уровень доступа пользователя:', req.userAccessLevel); // Добавлено для отладки
     try {
         const documents = await DocumentService.getDocuments();
         res.json(documents);
     } catch (error) {
-        console.error('Error handling documents request:', error.message);
-        res.status(500).send('Internal Server Error');
+        console.error('Ошибка обработки запроса документов:', error.message);
+        res.status(500).send('Внутренняя ошибка сервера');
     }
 });
 
@@ -27,8 +27,8 @@ router.get('/api/documents/:userID', checkAccessLevel(1), async (req, res) => {
         const documents = await DocumentService.getDocumentsByUser(userID);
         res.json(documents);
     } catch (error) {
-        console.error('Error handling documents request:', error.message);
-        res.status(500).send('Internal Server Error');
+        console.error('Ошибка обработки запроса документов:', error.message);
+        res.status(500).send('Внутренняя ошибка сервера');
     }
 });
 
@@ -39,27 +39,24 @@ router.post('/api/documents', checkAccessLevel(2), async (req, res) => {
         const createdDocument = await DocumentService.createDocument(newDocument);
         res.status(201).json(createdDocument);
     } catch (error) {
-        console.error('Error creating a new document:', error.message);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Ошибка создания нового документа:', error.message);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
 });
 
 // Подписать документ (только для уровня доступа 1)
 router.put('/api/documents/:documentID/sign', checkAccessLevel(1), async (req, res) => {
     const documentID = req.params.documentID;
-    const signedByUserID = req.userId; // Используем userId
+    const newStatus = req.body.newStatus;
+    const userAccessLevel = req.userAccessLevel;
 
     try {
-        const signedDocument = await DocumentService.signDocument(documentID, signedByUserID);
-        res.json(signedDocument);
+        console.log('Запрос на обновление статуса документа:', documentID, newStatus, userAccessLevel);
+        const updatedDocument = await DocumentService.signDocument(documentID, req.userAccessLevel, parseInt(req.userId));
+        res.status(200).json(updatedDocument);
     } catch (error) {
-        console.error('Error handling sign document request:', error.message);
-
-        if (error.message === 'Invalid document status for signing') {
-            res.status(400).json({ error: 'Невозможно подписать документ с текущим статусом' });
-        } else {
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+        console.error('Ошибка обновления статуса документа:', error.message);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
 });
 
@@ -69,12 +66,12 @@ router.put('/api/documents/:documentID/status', checkAccessLevel(2), async (req,
     const userAccessLevel = req.userAccessLevel;
 
     try {
-        console.log('Request to update document status:', documentID, newStatus, userAccessLevel);
+        console.log('Запрос на обновление статуса документа:', documentID, newStatus, userAccessLevel);
         const updatedDocument = await DocumentService.updateDocumentStatus(documentID, newStatus, req.userAccessLevel, parseInt(req.userId));
         res.status(200).json(updatedDocument);
     } catch (error) {
-        console.error('Error updating document status:', error.message);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Ошибка обновления статуса документа:', error.message);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
 });
 
@@ -86,54 +83,39 @@ router.delete('/api/documents/:documentID', checkAccessLevel(2), async (req, res
         await DocumentService.deleteDocument(documentID);
         res.status(204).send(); // No Content
     } catch (error) {
-        console.error('Error deleting document:', error.message);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Ошибка удаления документа:', error.message);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
 });
-router.put('/api/documents/:documentID/send-for-signing', checkAccessLevel(2), async (req, res) => {
+router.put('/api/documents/:documentID/send-for-signing', checkAccessLevel(1), async (req, res) => {
     const documentID = req.params.documentID;
 
     try {
         const sentDocument = await DocumentService.sendDocumentForSigning(documentID, req.userId);
         res.json(sentDocument);
     } catch (error) {
-        console.error('Error handling send document for signing request:', error.message);
+        console.error('Ошибка обработки отправки документа для запроса на подпись:', error.message);
 
-        if (error.message === 'Invalid document status for sending for signing') {
+        if (error.message === 'Неверный статус документа для отправки на подпись') {
             res.status(400).json({ error: 'Невозможно отправить документ на подпись с текущим статусом' });
         } else {
-            res.status(500).json({ error: 'Internal Server Error' });
+            res.status(500).json({ error: 'Внутренняя ошибка сервера' });
         }
     }
 });
 // Подписать документ (только для уровня доступа 1)
 router.put('/api/documents/:documentID/sign', checkAccessLevel(1), async (req, res) => {
     const documentID = req.params.documentID;
-    const signedByUserID = req.userId; // Используем userId
+    const newStatus = req.body.newStatus;
+    const userAccessLevel = req.userAccessLevel;
 
     try {
-        // Получаем информацию о документе
-        const document = await DocumentService.getDocumentById(documentID);
-
-        // Проверяем, что документ существует и его статус "Pending"
-        if (!document || document.Status !== 'Pending') {
-            throw new Error('Invalid document status for signing');
-        }
-
-        // Подписываем документ, обновляем его статус и информацию о подписывающем пользователе
-        const signedDocument = await DocumentService.signDocument(documentID, signedByUserID);
-
-        // Возвращаем информацию о подписанном документе
-        res.json(signedDocument);
+        console.log('Запрос на обновление статуса документа:', documentID, newStatus, userAccessLevel);
+        const updatedDocument = await DocumentService.sendDocumentForSigning(documentID, newStatus, req.userAccessLevel, parseInt(req.userId));
+        res.status(200).json(updatedDocument);
     } catch (error) {
-        console.error('Error handling sign document request:', error.message);
-
-        // Обрабатываем ошибку
-        if (error.message === 'Invalid document status for signing') {
-            res.status(400).json({ error: 'Невозможно подписать документ с текущим статусом' });
-        } else {
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+        console.error('Ошибка обновления статуса документа.:', error.message);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
 });
 

@@ -2,14 +2,14 @@
 const checkAccessLevel = (requiredAccessLevel) => {
     return (req, res, next) => {
         // Проверка уровня доступа пользователя
-        console.log('Required Access Level:', requiredAccessLevel);
-        console.log('User Access Level:', req.userAccessLevel);
+        console.log('Требуемый уровень доступа:', requiredAccessLevel);
+        console.log('Уровень доступа пользователя:', req.userAccessLevel);
 
         if (req.userAccessLevel && req.userAccessLevel >= requiredAccessLevel) {
-            console.log('Access granted. Proceeding to the next middleware or route.');
+            console.log('Доступ предоставлен. Переход к следующему промежуточному программному обеспечению или маршруту.');
             next(); // Пользователь имеет достаточный уровень доступа
         } else {
-            console.log('Access denied. Sending 403 Forbidden response.');
+            console.log('Доступ запрещен. Отправка 403 Запрещенный ответ.');
             res.status(403).send('Доступ запрещен');
         }
     };

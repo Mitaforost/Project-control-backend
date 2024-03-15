@@ -137,6 +137,37 @@ class DocumentService {
             throw error;
         }
     }
+    static async signDocumentStatus(documentID, newStatus, userAccessLevel) {
+        try {
+            console.log('Updating document status:', documentID, newStatus, userAccessLevel);
+
+            if (userAccessLevel === 1) {  // Check for manager level access
+                const result = await pool
+                    .request()
+                    .input('documentID', sql.Int, documentID)
+                    .input('newStatus', sql.NVarChar, newStatus)
+                    .query(`
+                        UPDATE Documents
+                        SET Status         = @newStatus,
+                            Action         = 'Document updated to ' + @newStatus,
+                            ActionByUserID = 0,                                                   -- Replace with appropriate user ID if needed
+                            SignedByUserID = CASE WHEN @newStatus = 'Signed' THEN 0 ELSE NULL END -- Replace with appropriate user ID if needed
+                        WHERE DocumentID = @documentID;
+                    `);
+
+                if (result && result.rowsAffected && result.rowsAffected > 0) {
+                    return result.rowsAffected;
+                } else {
+                    return null;
+                }
+            } else {
+                throw new Error('User does not have permission to update document status.');
+            }
+        } catch (error) {
+            console.error('Error updating document status:', error.message);
+            throw error;
+        }
+    }
 
     static async getDocumentById(documentID) {
         try {
@@ -167,7 +198,7 @@ class DocumentService {
         }
     }
 
-    static async sendDocumentForSigning(documentID, sentByUserID) {
+    static async sendDocumentForSigning(documentID, newStatus, userAccessLevel) {
         try {
             await connectDB();
 
